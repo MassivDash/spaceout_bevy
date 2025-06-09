@@ -1,25 +1,81 @@
 use bevy::prelude::*;
 mod base;
 mod player;
-use base::{Base, spawn_base};
+use base::{Base, animate_base, spawn_base};
 use player::{Player, spawn_player};
+use rand::Rng;
 
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
 const BACKGROUND_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
+const STAR_LAYERS: usize = 3;
+const STARS_PER_LAYER: usize = 100;
+const STAR_COLORS: [Color; STAR_LAYERS] = [
+    Color::BLACK,
+    Color::srgb(0.2, 0.2, 0.2), // dark gray
+    Color::srgb(0.5, 0.5, 0.5), // gray
+];
+const STAR_PARALLAX: [f32; STAR_LAYERS] = [0.2, 0.5, 0.8];
+
+#[derive(Component)]
+struct Star {
+    layer: usize,
+    base_pos: Vec2,
+}
+
+fn spawn_starfield(commands: &mut Commands) {
+    let mut rng = rand::rng();
+    for layer in 0..STAR_LAYERS {
+        for _ in 0..STARS_PER_LAYER {
+            let x = rng.random_range(-2000.0..2000.0);
+            let y = rng.random_range(-2000.0..2000.0);
+            let size = rng.random_range(1.0..3.0) * (layer as f32 + 1.0);
+            commands.spawn((
+                Sprite {
+                    color: STAR_COLORS[layer],
+                    custom_size: Some(Vec2::splat(size)),
+                    ..default()
+                },
+                Transform::from_translation(Vec3::new(x, y, -100.0 - layer as f32)),
+                Star {
+                    layer,
+                    base_pos: Vec2::new(x, y),
+                },
+            ));
+        }
+    }
+}
+
+fn parallax_starfield(
+    mut q: ParamSet<(
+        Query<&Transform, With<Player>>,
+        Query<(&Star, &mut Transform)>,
+    )>,
+) {
+    let player_pos = q.p0().single().unwrap().translation.truncate();
+    for (star, mut transform) in &mut q.p1() {
+        let parallax = STAR_PARALLAX[star.layer];
+        let offset = player_pos * (1.0 - parallax);
+        transform.translation.x = star.base_pos.x + offset.x;
+        transform.translation.y = star.base_pos.y + offset.y;
+    }
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    _asset_server: Res<AssetServer>,
+    asset_server: Res<AssetServer>,
+    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
+    spawn_starfield(&mut commands);
     // Camera
     commands.spawn((Camera2d, Transform::default()));
     // Player
-    spawn_player(&mut commands, &mut meshes, &mut materials);
-    // Base
-    spawn_base(&mut commands, &mut meshes, &mut materials);
+    spawn_player(&mut commands, &asset_server, &mut meshes, &mut materials);
+    // Base (earth sprite)
+    spawn_base(&mut commands, &asset_server, atlas_layouts);
 }
 
 // System to control the player triangle with rotation and throttle
@@ -66,7 +122,7 @@ fn camera_follow_and_zoom(
     let player_pos = q.p0().single().unwrap().translation.truncate();
     let base_pos = q.p1().single().unwrap().translation.truncate();
     let out_of_bounds = (player_pos - base_pos).length() > 400.0;
-    let target_zoom = if out_of_bounds { 4.0 } else { 1.0 };
+    let target_zoom = if out_of_bounds { 6.0 } else { 2.0 };
     let zoom_speed = 5.0; // Higher is snappier, lower is smoother
     for mut cam_transform in q.p2().iter_mut() {
         // Smoothly interpolate the zoom
@@ -83,6 +139,14 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_systems(Startup, setup)
-        .add_systems(Update, (move_player, camera_follow_and_zoom))
+        .add_systems(
+            Update,
+            (
+                parallax_starfield,
+                move_player,
+                camera_follow_and_zoom,
+                animate_base,
+            ),
+        )
         .run();
 }

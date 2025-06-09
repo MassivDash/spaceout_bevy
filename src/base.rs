@@ -1,41 +1,74 @@
 use bevy::prelude::*;
+use std::time::Duration;
 
 #[derive(Component)]
 pub struct Base;
 
+#[derive(Component)]
+pub struct AnimationConfig {
+    pub first_sprite_index: usize,
+    pub last_sprite_index: usize,
+    pub fps: u8,
+    pub frame_timer: Timer,
+}
+
+impl AnimationConfig {
+    pub fn new(first: usize, last: usize, fps: u8) -> Self {
+        Self {
+            first_sprite_index: first,
+            last_sprite_index: last,
+            fps,
+            frame_timer: Self::timer_from_fps(fps),
+        }
+    }
+    pub fn timer_from_fps(fps: u8) -> Timer {
+        Timer::new(
+            Duration::from_secs_f32(5.0 / (fps as f32)),
+            TimerMode::Repeating,
+        )
+    }
+}
+
 pub fn spawn_base(
     commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<ColorMaterial>>,
+    asset_server: &Res<AssetServer>,
+    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    let mut base_mesh = Mesh::new(
-        bevy::render::mesh::PrimitiveTopology::TriangleList,
-        Default::default(),
-    );
-    let base_radius = 40.0;
-    let segments = 32;
-    let mut positions = vec![[0.0, 0.0, 0.0]];
-    let mut uvs = vec![[0.5, 0.5]];
-    for i in 0..=segments {
-        let theta = (i as f32) * std::f32::consts::TAU / (segments as f32);
-        positions.push([base_radius * theta.cos(), base_radius * theta.sin(), 0.0]);
-        uvs.push([0.5 + 0.5 * theta.cos(), 0.5 + 0.5 * theta.sin()]);
-    }
-    base_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    base_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; segments + 2]);
-    base_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    let mut indices = Vec::new();
-    for i in 1..=segments {
-        indices.push(0);
-        indices.push(i as u32);
-        indices.push((i + 1) as u32);
-    }
-    base_mesh.insert_indices(bevy::render::mesh::Indices::U32(indices));
-    let base = Mesh2d(meshes.add(base_mesh));
+    // Correct asset path: relative to assets root, no leading slash
+    let texture_handle = asset_server.load("earthspin-sheet.png");
+    let layout = TextureAtlasLayout::from_grid(UVec2::new(48, 48), 10, 10, None, None);
+    let layout_handle = atlas_layouts.add(layout);
+    let animation_config = AnimationConfig::new(0, 93, 24); // 94 frames, 24 FPS
     commands.spawn((
-        base,
-        bevy::sprite::MeshMaterial2d(materials.add(Color::srgb(0.5, 0.5, 1.0))),
-        Transform::from_translation(Vec3::new(0.0, 0.0, -1.0)),
+        Sprite {
+            image: texture_handle,
+            texture_atlas: Some(TextureAtlas {
+                layout: layout_handle,
+                index: animation_config.first_sprite_index,
+            }),
+            ..default()
+        },
+        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(0.0, 0.0, -1.0)),
         Base,
+        animation_config,
     ));
+}
+
+// Animate the earth base
+pub fn animate_base(
+    time: Res<Time>,
+    mut query: Query<(&mut AnimationConfig, &mut Sprite), With<Base>>,
+) {
+    for (mut config, mut sprite) in &mut query {
+        config.frame_timer.tick(time.delta());
+        if config.frame_timer.just_finished() {
+            if let Some(ref mut atlas) = sprite.texture_atlas {
+                if atlas.index >= config.last_sprite_index {
+                    atlas.index = config.first_sprite_index;
+                } else {
+                    atlas.index += 1;
+                }
+            }
+        }
+    }
 }
