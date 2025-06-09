@@ -92,14 +92,16 @@ fn move_spaceship(
     let (mut transform, mut ship) = query.single_mut().unwrap();
     let mut rotation_delta = 0.0;
     let mut throttle_delta = 0.0;
+    let mut burning_fuel = false;
     if keyboard_input.pressed(KeyCode::ArrowLeft) {
         rotation_delta += 1.0;
     }
     if keyboard_input.pressed(KeyCode::ArrowRight) {
         rotation_delta -= 1.0;
     }
-    if keyboard_input.pressed(KeyCode::ArrowUp) {
+    if keyboard_input.pressed(KeyCode::ArrowUp) && ship.fuel > 0.0 {
         throttle_delta += 1.0;
+        burning_fuel = true;
     }
     if keyboard_input.pressed(KeyCode::ArrowDown) {
         throttle_delta -= 1.0;
@@ -109,10 +111,36 @@ fn move_spaceship(
     transform.rotation = transform.rotation
         * Quat::from_rotation_z(rotation_delta * rotation_speed * time.delta_secs());
     // Update throttle
+    let prev_throttle = ship.throttle;
     ship.throttle = (ship.throttle + throttle_delta * 200.0 * time.delta_secs()).clamp(0.0, 800.0);
+    // Burn fuel if accelerating
+    if burning_fuel && ship.throttle > 0.0 {
+        let burn = 0.25 * ship.throttle / 800.0 * time.delta_secs();
+        ship.fuel = (ship.fuel - burn).max(0.0);
+        // If fuel runs out, throttle drops to 0
+        if ship.fuel <= 0.0 {
+            ship.throttle = 0.0;
+        }
+    }
     // Move in the direction the spaceship is facing
     let forward = transform.rotation * Vec3::Y;
     transform.translation += forward * ship.throttle * time.delta_secs();
+}
+
+// System to refuel when visiting the base
+fn refuel_on_base_visit(
+    mut ship_query: Query<(&mut Spaceship, &Transform)>,
+    base_query: Query<&Transform, With<Base>>,
+) {
+    let (mut ship, ship_transform) = ship_query.single_mut().unwrap();
+    let base_transform = base_query.single().unwrap();
+    let dist = ship_transform
+        .translation
+        .truncate()
+        .distance(base_transform.translation.truncate());
+    if dist < 80.0 {
+        ship.fuel = 1.0;
+    }
 }
 
 // Camera follow and zoom logic
@@ -285,6 +313,7 @@ fn main() {
                 camera_follow_and_zoom,
                 animate_base,
                 spaceship_ui_panel,
+                refuel_on_base_visit,
             ),
         )
         .run();
