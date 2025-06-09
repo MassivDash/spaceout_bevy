@@ -1,9 +1,14 @@
+use bevy::color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW};
+use bevy::ecs::hierarchy::ChildSpawnerCommands;
 use bevy::prelude::*;
+use rand::Rng;
+
 mod base;
 mod player;
-use base::{Base, animate_base, spawn_base};
-use player::{Player, spawn_player};
-use rand::Rng;
+use base::{animate_base, spawn_base};
+use player::{Spaceship, spawn_spaceship};
+
+use crate::base::Base;
 
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
@@ -49,7 +54,7 @@ fn spawn_starfield(commands: &mut Commands) {
 
 fn parallax_starfield(
     mut q: ParamSet<(
-        Query<&Transform, With<Player>>,
+        Query<&Transform, With<Spaceship>>,
         Query<(&Star, &mut Transform)>,
     )>,
 ) {
@@ -72,19 +77,19 @@ fn setup(
     spawn_starfield(&mut commands);
     // Camera
     commands.spawn((Camera2d, Transform::default()));
-    // Player
-    spawn_player(&mut commands, &asset_server, &mut meshes, &mut materials);
+    // Spaceship
+    spawn_spaceship(&mut commands, &asset_server, &mut meshes, &mut materials);
     // Base (earth sprite)
     spawn_base(&mut commands, &asset_server, atlas_layouts);
 }
 
 // System to control the player triangle with rotation and throttle
-fn move_player(
+fn move_spaceship(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut player_query: Query<(&mut Transform, &mut Player)>,
+    mut query: Query<(&mut Transform, &mut Spaceship)>,
     time: Res<Time>,
 ) {
-    let (mut transform, mut player) = player_query.single_mut().unwrap();
+    let (mut transform, mut ship) = query.single_mut().unwrap();
     let mut rotation_delta = 0.0;
     let mut throttle_delta = 0.0;
     if keyboard_input.pressed(KeyCode::ArrowLeft) {
@@ -104,17 +109,16 @@ fn move_player(
     transform.rotation = transform.rotation
         * Quat::from_rotation_z(rotation_delta * rotation_speed * time.delta_secs());
     // Update throttle
-    player.throttle =
-        (player.throttle + throttle_delta * 200.0 * time.delta_secs()).clamp(0.0, 800.0);
-    // Move in the direction the triangle is facing
+    ship.throttle = (ship.throttle + throttle_delta * 200.0 * time.delta_secs()).clamp(0.0, 800.0);
+    // Move in the direction the spaceship is facing
     let forward = transform.rotation * Vec3::Y;
-    transform.translation += forward * player.throttle * time.delta_secs();
+    transform.translation += forward * ship.throttle * time.delta_secs();
 }
 
 // Camera follow and zoom logic
 fn camera_follow_and_zoom(
     mut q: ParamSet<(
-        Query<&Transform, With<Player>>,
+        Query<&Transform, With<Spaceship>>,
         Query<&Transform, With<Base>>,
         Query<&mut Transform, With<Camera2d>>,
     )>,
@@ -134,6 +138,140 @@ fn camera_follow_and_zoom(
     }
 }
 
+#[derive(Component)]
+struct SidePanelRoot;
+
+// Fix: Accept the correct parent type for .with_children closure (ChildSpawnerCommands)
+fn spaceship_ui_panel(
+    q: Query<&Spaceship>,
+    mut commands: Commands,
+    mut root_query: Query<Entity, With<SidePanelRoot>>,
+    asset_server: Res<AssetServer>,
+) {
+    if let Ok(root) = root_query.single() {
+        commands.entity(root).despawn();
+    }
+    let ship = q.single().unwrap();
+    let bar_width = 200.0;
+    let bar_height = 24.0;
+    let margin = 8.0;
+    let font_size = 18.0;
+    let text_font = TextFont {
+        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        ..default()
+    };
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                right: Val::Px(24.0),
+                top: Val::Px(24.0),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexEnd,
+                row_gap: Val::Px(margin),
+                ..default()
+            },
+            BackgroundColor(Color::BLACK.with_alpha(0.7)),
+            SidePanelRoot,
+        ))
+        .with_children(|parent: &mut ChildSpawnerCommands| {
+            spawn_bar(
+                parent,
+                "Fuel",
+                ship.fuel,
+                YELLOW.into(),
+                bar_width,
+                bar_height,
+                font_size,
+                &text_font,
+            );
+            spawn_bar(
+                parent,
+                "Hull",
+                ship.hull,
+                DARK_CYAN.into(),
+                bar_width,
+                bar_height,
+                font_size,
+                &text_font,
+            );
+            spawn_bar(
+                parent,
+                "Shields",
+                ship.shields,
+                DARK_GRAY.into(),
+                bar_width,
+                bar_height,
+                font_size,
+                &text_font,
+            );
+            spawn_bar(
+                parent,
+                "Weapons",
+                ship.weapons as f32 / 10.0,
+                Color::hsl(0.0, 0.75, 0.5),
+                bar_width,
+                bar_height,
+                font_size,
+                &text_font,
+            );
+        });
+}
+
+// Update spawn_bar to accept ChildSpawnerCommands
+fn spawn_bar(
+    parent: &mut ChildSpawnerCommands,
+    label: &str,
+    value: f32,
+    color: Color,
+    width: f32,
+    height: f32,
+    font_size: f32,
+    text_font: &TextFont,
+) {
+    parent
+        .spawn((
+            Node {
+                width: Val::Px(width),
+                height: Val::Px(height),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(Color::from(DARK_GRAY).with_alpha(0.7)),
+        ))
+        .with_children(|bar| {
+            bar.spawn((
+                Text::new(label),
+                text_font.clone(),
+                Node {
+                    width: Val::Px(80.0),
+                    height: Val::Px(height),
+                    ..default()
+                },
+            ));
+            bar.spawn((
+                Node {
+                    width: Val::Px(width - 90.0),
+                    height: Val::Px(height - 8.0),
+                    margin: UiRect::left(Val::Px(8.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::BLACK),
+            ))
+            .with_children(|bar_bg| {
+                bar_bg.spawn((
+                    Node {
+                        width: Val::Px((width - 90.0) * value.clamp(0.0, 1.0)),
+                        height: Val::Px(height - 8.0),
+                        ..default()
+                    },
+                    BackgroundColor(color),
+                ));
+            });
+        });
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -143,9 +281,10 @@ fn main() {
             Update,
             (
                 parallax_starfield,
-                move_player,
+                move_spaceship,
                 camera_follow_and_zoom,
                 animate_base,
+                spaceship_ui_panel,
             ),
         )
         .run();
