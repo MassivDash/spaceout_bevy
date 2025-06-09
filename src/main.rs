@@ -72,7 +72,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
-    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    atlas_layouts: ResMut<Assets<TextureAtlasLayout>>, // not mut
 ) {
     spawn_starfield(&mut commands);
     // Camera
@@ -145,7 +145,7 @@ struct SidePanelRoot;
 fn spaceship_ui_panel(
     q: Query<&Spaceship>,
     mut commands: Commands,
-    mut root_query: Query<Entity, With<SidePanelRoot>>,
+    root_query: Query<Entity, With<SidePanelRoot>>,
     asset_server: Res<AssetServer>,
 ) {
     if let Ok(root) = root_query.single() {
@@ -226,7 +226,7 @@ fn spawn_bar(
     color: Color,
     width: f32,
     height: f32,
-    font_size: f32,
+    _font_size: f32, // remove unused warning
     text_font: &TextFont,
 ) {
     parent
