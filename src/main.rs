@@ -83,7 +83,7 @@ fn setup(
     spawn_base(&mut commands, &asset_server, atlas_layouts);
 }
 
-// System to control the player triangle with rotation and throttle
+// System to control the player triangle with rotation and speed
 fn move_spaceship(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Transform, &mut Spaceship)>,
@@ -91,7 +91,7 @@ fn move_spaceship(
 ) {
     let (mut transform, mut ship) = query.single_mut().unwrap();
     let mut rotation_delta = 0.0;
-    let mut throttle_delta = 0.0;
+    let mut speed_delta = 0.0;
     let mut burning_fuel = false;
     if keyboard_input.pressed(KeyCode::ArrowLeft) {
         rotation_delta += 1.0;
@@ -99,28 +99,28 @@ fn move_spaceship(
     if keyboard_input.pressed(KeyCode::ArrowRight) {
         rotation_delta -= 1.0;
     }
+    // Only allow speed increase if ArrowUp is pressed and fuel > 0
     if keyboard_input.pressed(KeyCode::ArrowUp) && ship.fuel > 0.0 {
-        throttle_delta += 1.0;
+        speed_delta += 1.0;
         burning_fuel = true;
     }
     if keyboard_input.pressed(KeyCode::ArrowDown) {
-        throttle_delta -= 1.0;
+        speed_delta -= 1.0;
     }
     // Update rotation (tilt)
     let rotation_speed = std::f32::consts::PI; // radians/sec
     transform.rotation = transform.rotation
         * Quat::from_rotation_z(rotation_delta * rotation_speed * time.delta_secs());
-    // Update throttle
-    let prev_throttle = ship.throttle;
-    ship.throttle = (ship.throttle + throttle_delta * 200.0 * time.delta_secs()).clamp(0.0, 800.0);
-    // Burn fuel if accelerating
+    // Update speed (no upper limit)
+    if speed_delta > 0.0 && ship.fuel > 0.0 {
+        ship.throttle += speed_delta * 200.0 * time.delta_secs();
+    } else if speed_delta < 0.0 {
+        ship.throttle = (ship.throttle + speed_delta * 200.0 * time.delta_secs()).max(0.0);
+    }
+    // Burn fuel if accelerating (ArrowUp and fuel > 0)
     if burning_fuel && ship.throttle > 0.0 {
         let burn = 0.25 * ship.throttle / 800.0 * time.delta_secs();
         ship.fuel = (ship.fuel - burn).max(0.0);
-        // If fuel runs out, throttle drops to 0
-        if ship.fuel <= 0.0 {
-            ship.throttle = 0.0;
-        }
     }
     // Move in the direction the spaceship is facing
     let forward = transform.rotation * Vec3::Y;
@@ -170,6 +170,7 @@ fn camera_follow_and_zoom(
 struct SidePanelRoot;
 
 // Fix: Accept the correct parent type for .with_children closure (ChildSpawnerCommands)
+// Add a vertical throttle indicator and a speed readout to the UI panel. The throttle bar fills based on ship.throttle, and the speed is shown as a number. The indicator is placed next to the stats panel.
 fn spaceship_ui_panel(
     q: Query<&Spaceship>,
     mut commands: Commands,
@@ -194,55 +195,93 @@ fn spaceship_ui_panel(
                 position_type: PositionType::Absolute,
                 right: Val::Px(24.0),
                 top: Val::Px(24.0),
-                flex_direction: FlexDirection::Column,
+                flex_direction: FlexDirection::Row,
                 align_items: AlignItems::FlexEnd,
                 row_gap: Val::Px(margin),
                 ..default()
             },
-            BackgroundColor(Color::BLACK.with_alpha(0.7)),
+            BackgroundColor(Color::NONE),
             SidePanelRoot,
         ))
         .with_children(|parent: &mut ChildSpawnerCommands| {
-            spawn_bar(
-                parent,
-                "Fuel",
-                ship.fuel,
-                YELLOW.into(),
-                bar_width,
-                bar_height,
-                font_size,
-                &text_font,
-            );
-            spawn_bar(
-                parent,
-                "Hull",
-                ship.hull,
-                DARK_CYAN.into(),
-                bar_width,
-                bar_height,
-                font_size,
-                &text_font,
-            );
-            spawn_bar(
-                parent,
-                "Shields",
-                ship.shields,
-                DARK_GRAY.into(),
-                bar_width,
-                bar_height,
-                font_size,
-                &text_font,
-            );
-            spawn_bar(
-                parent,
-                "Weapons",
-                ship.weapons as f32 / 10.0,
-                Color::hsl(0.0, 0.75, 0.5),
-                bar_width,
-                bar_height,
-                font_size,
-                &text_font,
-            );
+            // Speed indicator only (no throttle bar)
+            parent
+                .spawn((
+                    Node {
+                        width: Val::Px(40.0),
+                        height: Val::Px(80.0),
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::FlexEnd,
+                        margin: UiRect::right(Val::Px(16.0)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::from(DARK_GRAY).with_alpha(0.7)),
+                ))
+                .with_children(|col| {
+                    // Speed indicator
+                    col.spawn((
+                        Text::new(format!("Speed: {:.0}", ship.throttle)),
+                        text_font.clone(),
+                        Node {
+                            margin: UiRect::top(Val::Px(8.0)),
+                            ..default()
+                        },
+                    ));
+                });
+            // Stats panel
+            parent
+                .spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::FlexEnd,
+                        row_gap: Val::Px(margin),
+                        ..default()
+                    },
+                    BackgroundColor(Color::BLACK.with_alpha(0.7)),
+                ))
+                .with_children(|panel| {
+                    spawn_bar(
+                        panel,
+                        "Fuel",
+                        ship.fuel,
+                        YELLOW.into(),
+                        bar_width,
+                        bar_height,
+                        font_size,
+                        &text_font,
+                    );
+                    spawn_bar(
+                        panel,
+                        "Hull",
+                        ship.hull,
+                        DARK_CYAN.into(),
+                        bar_width,
+                        bar_height,
+                        font_size,
+                        &text_font,
+                    );
+                    spawn_bar(
+                        panel,
+                        "Shields",
+                        ship.shields,
+                        DARK_GRAY.into(),
+                        bar_width,
+                        bar_height,
+                        font_size,
+                        &text_font,
+                    );
+                    spawn_bar(
+                        panel,
+                        "Weapons",
+                        ship.weapons as f32 / 10.0,
+                        Color::hsl(0.0, 0.75, 0.5),
+                        bar_width,
+                        bar_height,
+                        font_size,
+                        &text_font,
+                    );
+                });
         });
 }
 
