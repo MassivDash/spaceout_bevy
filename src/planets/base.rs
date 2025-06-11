@@ -3,8 +3,6 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct Base;
 
-// Remove AnimationConfig and related code if not needed
-
 pub fn spawn_base(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,

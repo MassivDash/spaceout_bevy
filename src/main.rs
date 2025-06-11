@@ -3,14 +3,11 @@ use bevy::ecs::hierarchy::ChildSpawnerCommands;
 use bevy::prelude::*;
 use rand::Rng;
 
-mod base;
-mod moon;
+mod planets;
 mod player;
-use base::spawn_base;
-use moon::{Moon, spawn_moon};
+use planets::base::{Base, spawn_base};
+use planets::moon::{Moon, spawn_moon};
 use player::{Spaceship, spawn_spaceship};
-
-use crate::base::Base;
 
 // These constants are defined in `Transform` units.
 // Using the default 2D camera they correspond 1:1 with screen pixels.
