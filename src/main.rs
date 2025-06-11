@@ -4,8 +4,10 @@ use bevy::prelude::*;
 use rand::Rng;
 
 mod base;
+mod moon;
 mod player;
-use base::{animate_base, spawn_base};
+use base::spawn_base;
+use moon::{Moon, spawn_moon};
 use player::{Spaceship, spawn_spaceship};
 
 use crate::base::Base;
@@ -81,6 +83,8 @@ fn setup(
     spawn_spaceship(&mut commands, &asset_server, &mut meshes, &mut materials);
     // Base (earth sprite)
     spawn_base(&mut commands, &asset_server, atlas_layouts);
+    // Moon (moon sprite)
+    spawn_moon(&mut commands, &asset_server);
 }
 
 // System to control the player triangle with rotation and speed
@@ -127,18 +131,19 @@ fn move_spaceship(
     transform.translation += forward * ship.throttle * time.delta_secs();
 }
 
-// System to refuel when visiting the base
+// System to refuel when visiting the base or moon
 fn refuel_on_base_visit(
     mut ship_query: Query<(&mut Spaceship, &Transform)>,
     base_query: Query<&Transform, With<Base>>,
+    moon_query: Query<&Transform, With<Moon>>,
 ) {
     let (mut ship, ship_transform) = ship_query.single_mut().unwrap();
     let base_transform = base_query.single().unwrap();
-    let dist = ship_transform
-        .translation
-        .truncate()
-        .distance(base_transform.translation.truncate());
-    if dist < 80.0 {
+    let moon_transform = moon_query.single().unwrap();
+    let ship_pos = ship_transform.translation.truncate();
+    let base_pos = base_transform.translation.truncate();
+    let moon_pos = moon_transform.translation.truncate();
+    if ship_pos.distance(base_pos) < 150.0 || ship_pos.distance(moon_pos) < 100.0 {
         ship.fuel = 1.0;
     }
 }
@@ -350,7 +355,6 @@ fn main() {
                 parallax_starfield,
                 move_spaceship,
                 camera_follow_and_zoom,
-                animate_base,
                 spaceship_ui_panel,
                 refuel_on_base_visit,
             ),
