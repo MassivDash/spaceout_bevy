@@ -5,6 +5,7 @@ mod planets;
 mod ship;
 use planets::base::{Base, spawn_base};
 use planets::moon::{Moon, spawn_moon};
+use planets::sun::{rotate_sun, spawn_sun};
 use ship::spaceship::{Spaceship, spawn_spaceship};
 
 // These constants are defined in `Transform` units.
@@ -80,6 +81,8 @@ fn setup(
     spawn_base(&mut commands, &asset_server, atlas_layouts);
     // Moon (moon sprite)
     spawn_moon(&mut commands, &asset_server);
+    // Sun (sun sprite)
+    spawn_sun(&mut commands, &asset_server);
 }
 
 // System to refuel when visiting the base or moon
@@ -135,6 +138,7 @@ fn main() {
                 camera_follow_and_zoom,
                 ship::ui::spaceship_ui_panel,
                 refuel_on_base_visit,
+                rotate_sun,
             ),
         )
         .run();
