@@ -1,3 +1,4 @@
+use crate::SunDamageWarning;
 use crate::ship::spaceship::Spaceship;
 use bevy::color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW};
 use bevy::prelude::*;
@@ -10,6 +11,7 @@ pub fn spaceship_ui_panel(
     mut commands: Commands,
     root_query: Query<Entity, With<SidePanelRoot>>,
     asset_server: Res<AssetServer>,
+    sun_damage_warning: Res<SunDamageWarning>,
 ) {
     if let Ok(root) = root_query.single() {
         commands.entity(root).despawn();
@@ -84,6 +86,7 @@ pub fn spaceship_ui_panel(
                         bar_height,
                         font_size,
                         &text_font,
+                        None,
                     );
                     spawn_bar(
                         panel,
@@ -94,6 +97,11 @@ pub fn spaceship_ui_panel(
                         bar_height,
                         font_size,
                         &text_font,
+                        if sun_damage_warning.0 {
+                            Some("!")
+                        } else {
+                            None
+                        },
                     );
                     spawn_bar(
                         panel,
@@ -104,6 +112,7 @@ pub fn spaceship_ui_panel(
                         bar_height,
                         font_size,
                         &text_font,
+                        None,
                     );
                     spawn_bar(
                         panel,
@@ -114,6 +123,7 @@ pub fn spaceship_ui_panel(
                         bar_height,
                         font_size,
                         &text_font,
+                        None,
                     );
                 });
         });
@@ -128,6 +138,7 @@ pub fn spawn_bar(
     height: f32,
     _font_size: f32, // remove unused warning
     text_font: &TextFont,
+    warning: Option<&str>,
 ) {
     parent
         .spawn((
@@ -141,8 +152,13 @@ pub fn spawn_bar(
             BackgroundColor(Color::from(DARK_GRAY).with_alpha(0.7)),
         ))
         .with_children(|bar| {
+            let label_text = if let Some(w) = warning {
+                format!("{} {}", label, w)
+            } else {
+                label.to_string()
+            };
             bar.spawn((
-                Text::new(label),
+                Text::new(label_text),
                 text_font.clone(),
                 Node {
                     width: Val::Px(80.0),

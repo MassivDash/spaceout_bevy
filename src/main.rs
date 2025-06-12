@@ -125,10 +125,43 @@ fn camera_follow_and_zoom(
     }
 }
 
+// System to apply sun proximity damage to the ship
+fn sun_proximity_damage(
+    mut ship_query: Query<(&mut ship::spaceship::Spaceship, &Transform)>,
+    sun_query: Query<&Transform, With<planets::sun::Sun>>,
+    time: Res<Time>,
+    mut sun_damage_warning: ResMut<SunDamageWarning>,
+) {
+    let (mut ship, ship_transform) = match ship_query.single_mut() {
+        Ok(val) => val,
+        Err(_) => return,
+    };
+    let sun_transform = match sun_query.single() {
+        Ok(val) => val,
+        Err(_) => return,
+    };
+    let ship_pos = ship_transform.translation.truncate();
+    let sun_pos = sun_transform.translation.truncate();
+    let dist = ship_pos.distance(sun_pos);
+    let damage_radius = 600.0; // Adjust as needed
+    let damage_per_sec = 0.25; // Hull damage per second
+    if dist < damage_radius {
+        ship.hull = (ship.hull - damage_per_sec * time.delta().as_secs_f32()).max(0.0);
+        sun_damage_warning.0 = true;
+    } else {
+        sun_damage_warning.0 = false;
+    }
+}
+
+// Resource to track if the ship is currently taking sun damage
+#[derive(Resource, Default)]
+pub struct SunDamageWarning(pub bool);
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(BACKGROUND_COLOR))
+        .init_resource::<SunDamageWarning>()
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -139,6 +172,7 @@ fn main() {
                 ship::ui::spaceship_ui_panel,
                 refuel_on_base_visit,
                 rotate_sun,
+                sun_proximity_damage, // Add the new system
             ),
         )
         .run();
