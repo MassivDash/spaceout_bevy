@@ -36,46 +36,41 @@ pub fn spaceship_ui_panel(
                 row_gap: Val::Px(margin),
                 ..default()
             },
-            BackgroundColor(Color::NONE),
+            BackgroundColor(Color::WHITE.with_alpha(0.1)),
             SidePanelRoot,
         ))
         .with_children(|parent: &mut bevy::ecs::hierarchy::ChildSpawnerCommands| {
             // Speed indicator only (no throttle bar)
             parent
-                .spawn((
-                    Node {
-                        width: Val::Px(40.0),
-                        height: Val::Px(80.0),
-                        flex_direction: FlexDirection::ColumnReverse,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::FlexEnd,
-                        margin: UiRect::right(Val::Px(16.0)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::from(DARK_GRAY).with_alpha(0.7)),
-                ))
+                .spawn((Node {
+                    width: Val::Px(180.0),
+                    height: Val::Px(50.0),
+                    flex_direction: FlexDirection::ColumnReverse,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::FlexEnd,
+                    margin: UiRect::right(Val::Px(16.0)),
+                    ..default()
+                },))
                 .with_children(|col| {
                     // Speed indicator
                     col.spawn((
-                        Text::new(format!("Speed: {:.0}", ship.throttle)),
+                        Text::new(format!("speed: {:.0}", ship.throttle)),
                         text_font.clone(),
                         Node {
                             margin: UiRect::top(Val::Px(8.0)),
                             ..default()
                         },
+                        TextColor(Color::BLACK.into()),
                     ));
                 });
             // Stats panel
             parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::FlexEnd,
-                        row_gap: Val::Px(margin),
-                        ..default()
-                    },
-                    BackgroundColor(Color::BLACK.with_alpha(0.7)),
-                ))
+                .spawn((Node {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::FlexEnd,
+                    row_gap: Val::Px(margin),
+                    ..default()
+                },))
                 .with_children(|panel| {
                     spawn_bar(
                         panel,
@@ -141,16 +136,13 @@ pub fn spawn_bar(
     warning: Option<&str>,
 ) {
     parent
-        .spawn((
-            Node {
-                width: Val::Px(width),
-                height: Val::Px(height),
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::from(DARK_GRAY).with_alpha(0.7)),
-        ))
+        .spawn((Node {
+            width: Val::Px(width),
+            height: Val::Px(height),
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            ..default()
+        },))
         .with_children(|bar| {
             let label_text = if let Some(w) = warning {
                 format!("{} {}", label, w)
@@ -165,25 +157,23 @@ pub fn spawn_bar(
                     height: Val::Px(height),
                     ..default()
                 },
+                TextColor(Color::BLACK.into()),
             ));
-            bar.spawn((
-                Node {
-                    width: Val::Px(width - 90.0),
-                    height: Val::Px(height - 8.0),
-                    margin: UiRect::left(Val::Px(8.0)),
-                    ..default()
-                },
-                BackgroundColor(Color::BLACK),
-            ))
-            .with_children(|bar_bg| {
-                bar_bg.spawn((
-                    Node {
-                        width: Val::Px((width - 90.0) * value.clamp(0.0, 1.0)),
-                        height: Val::Px(height - 8.0),
-                        ..default()
-                    },
-                    BackgroundColor(color),
-                ));
-            });
+            bar.spawn((Node {
+                width: Val::Px(width - 90.0),
+                height: Val::Px(height - 8.0),
+                margin: UiRect::left(Val::Px(8.0)),
+                ..default()
+            },))
+                .with_children(|bar_bg| {
+                    bar_bg.spawn((
+                        Node {
+                            width: Val::Px((width - 90.0) * value.clamp(0.0, 1.0)),
+                            height: Val::Px(height - 8.0),
+                            ..default()
+                        },
+                        BackgroundColor(color),
+                    ));
+                });
         });
 }

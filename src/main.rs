@@ -6,6 +6,7 @@ mod ship;
 use planets::base::{Base, spawn_base};
 use planets::moon::{Moon, spawn_moon};
 use planets::sun::{rotate_sun, spawn_sun};
+use ship::action_menu::{ActionMenuTarget, show_action_menu_system};
 use ship::spaceship::{Spaceship, spawn_spaceship};
 
 // These constants are defined in `Transform` units.
@@ -78,9 +79,16 @@ fn setup(
     // Spaceship
     spawn_spaceship(&mut commands, &asset_server, &mut meshes, &mut materials);
     // Base (earth sprite)
-    spawn_base(&mut commands, &asset_server, atlas_layouts);
+    let base_entity = spawn_base(&mut commands, &asset_server, atlas_layouts);
+    // Add ActionMenuTarget to base
+    commands.entity(base_entity).insert(ActionMenuTarget {
+        label: "Base".to_string(),
+    });
     // Moon (moon sprite)
-    spawn_moon(&mut commands, &asset_server);
+    let moon_entity = spawn_moon(&mut commands, &asset_server);
+    commands.entity(moon_entity).insert(ActionMenuTarget {
+        label: "Moon".to_string(),
+    });
     // Sun (sun sprite)
     spawn_sun(&mut commands, &asset_server);
 }
@@ -172,7 +180,9 @@ fn main() {
                 ship::ui::spaceship_ui_panel,
                 refuel_on_base_visit,
                 rotate_sun,
-                sun_proximity_damage, // Add the new system
+                sun_proximity_damage,
+                show_action_menu_system, // Add action menu system
+                ship::action_menu::action_menu_button_system, // Add action menu button system for interactivity
             ),
         )
         .run();
