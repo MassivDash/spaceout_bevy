@@ -57,8 +57,7 @@ fn setup_space(
     atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     spawn_starfield(&mut commands);
-    // Camera
-    commands.spawn((Camera2d, Transform::default(), OnSpaceScreen));
+
     // Spaceship
     spawn_spaceship(&mut commands, &asset_server, &mut meshes, &mut materials);
     // Base (earth sprite)

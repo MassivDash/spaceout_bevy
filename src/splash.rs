@@ -24,14 +24,13 @@ struct SplashTimer(Timer);
 
 fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let icon = asset_server.load("branding/icon.png");
-    // Display the logo
+    // Display the logo (no Camera2d spawn here)
     commands.spawn((
         Node {
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
-
             ..default()
         },
         BackgroundColor(WHITE.into()),
