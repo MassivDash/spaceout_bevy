@@ -188,7 +188,6 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(CRIMSON.into()),
             children![
                 // Display the game name
                 (
