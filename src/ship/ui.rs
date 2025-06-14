@@ -1,5 +1,5 @@
-use crate::SunDamageWarning;
 use crate::ship::spaceship::Spaceship;
+use crate::space::SunDamageWarning;
 use bevy::color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW};
 use bevy::prelude::*;
 

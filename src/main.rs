@@ -1,189 +1,58 @@
 use bevy::prelude::*;
-use rand::Rng;
 
+mod docked;
+mod menu;
 mod planets;
 mod ship;
-use planets::base::{Base, spawn_base};
-use planets::moon::{Moon, spawn_moon};
-use planets::sun::{rotate_sun, spawn_sun};
-use ship::action_menu::{ActionMenuTarget, show_action_menu_system};
-use ship::spaceship::{Spaceship, spawn_spaceship};
+mod space;
+mod splash;
 
-// These constants are defined in `Transform` units.
-// Using the default 2D camera they correspond 1:1 with screen pixels.
-const BACKGROUND_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
-const STAR_LAYERS: usize = 3;
-const STARS_PER_LAYER: usize = 100;
-const STAR_COLORS: [Color; STAR_LAYERS] = [
-    Color::BLACK,
-    Color::srgb(0.2, 0.2, 0.2), // dark gray
-    Color::srgb(0.5, 0.5, 0.5), // gray
-];
-const STAR_PARALLAX: [f32; STAR_LAYERS] = [0.2, 0.5, 0.8];
-
-#[derive(Component)]
-struct Star {
-    layer: usize,
-    base_pos: Vec2,
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
+pub enum GameState {
+    #[default]
+    Splash,
+    Menu,
+    Space,
+    Docked,
 }
 
-fn spawn_starfield(commands: &mut Commands) {
-    let mut rng = rand::rng();
-    for layer in 0..STAR_LAYERS {
-        for _ in 0..STARS_PER_LAYER {
-            let x = rng.random_range(-2000.0..2000.0);
-            let y = rng.random_range(-2000.0..2000.0);
-            let size = rng.random_range(1.0..3.0) * (layer as f32 + 1.0);
-            commands.spawn((
-                Sprite {
-                    color: STAR_COLORS[layer],
-                    custom_size: Some(Vec2::splat(size)),
-                    ..default()
-                },
-                Transform::from_translation(Vec3::new(x, y, -100.0 - layer as f32)),
-                Star {
-                    layer,
-                    base_pos: Vec2::new(x, y),
-                },
-            ));
-        }
-    }
+#[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
+enum DisplayQuality {
+    Low,
+    Medium,
+    High,
 }
 
-fn parallax_starfield(
-    mut q: ParamSet<(
-        Query<&Transform, With<Spaceship>>,
-        Query<(&Star, &mut Transform)>,
-    )>,
-) {
-    let player_pos = q.p0().single().unwrap().translation.truncate();
-    for (star, mut transform) in &mut q.p1() {
-        let parallax = STAR_PARALLAX[star.layer];
-        let offset = player_pos * (1.0 - parallax);
-        transform.translation.x = star.base_pos.x + offset.x;
-        transform.translation.y = star.base_pos.y + offset.y;
-    }
-}
-
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-    atlas_layouts: ResMut<Assets<TextureAtlasLayout>>, // not mut
-) {
-    spawn_starfield(&mut commands);
-    // Camera
-    commands.spawn((Camera2d, Transform::default()));
-    // Spaceship
-    spawn_spaceship(&mut commands, &asset_server, &mut meshes, &mut materials);
-    // Base (earth sprite)
-    let base_entity = spawn_base(&mut commands, &asset_server, atlas_layouts);
-    // Add ActionMenuTarget to base
-    commands.entity(base_entity).insert(ActionMenuTarget {
-        label: "Base".to_string(),
-    });
-    // Moon (moon sprite)
-    let moon_entity = spawn_moon(&mut commands, &asset_server);
-    commands.entity(moon_entity).insert(ActionMenuTarget {
-        label: "Moon".to_string(),
-    });
-    // Sun (sun sprite)
-    spawn_sun(&mut commands, &asset_server);
-}
-
-// System to refuel when visiting the base or moon
-fn refuel_on_base_visit(
-    mut ship_query: Query<(&mut Spaceship, &Transform)>,
-    base_query: Query<&Transform, With<Base>>,
-    moon_query: Query<&Transform, With<Moon>>,
-) {
-    let (mut ship, ship_transform) = ship_query.single_mut().unwrap();
-    let base_transform = base_query.single().unwrap();
-    let moon_transform = moon_query.single().unwrap();
-    let ship_pos = ship_transform.translation.truncate();
-    let base_pos = base_transform.translation.truncate();
-    let moon_pos = moon_transform.translation.truncate();
-    if ship_pos.distance(base_pos) < 150.0 || ship_pos.distance(moon_pos) < 100.0 {
-        ship.fuel = 1.0;
-    }
-}
-
-// Camera follow and zoom logic
-fn camera_follow_and_zoom(
-    mut q: ParamSet<(
-        Query<&Transform, With<Spaceship>>,
-        Query<&Transform, With<Base>>,
-        Query<&mut Transform, With<Camera2d>>,
-    )>,
-) {
-    let player_pos = q.p0().single().unwrap().translation.truncate();
-    let base_pos = q.p1().single().unwrap().translation.truncate();
-    let out_of_bounds = (player_pos - base_pos).length() > 400.0;
-    let target_zoom = if out_of_bounds { 6.0 } else { 2.0 };
-    let zoom_speed = 5.0; // Higher is snappier, lower is smoother
-    for mut cam_transform in q.p2().iter_mut() {
-        // Smoothly interpolate the zoom
-        let current_zoom = cam_transform.scale.x;
-        let new_zoom = current_zoom + (target_zoom - current_zoom) * zoom_speed * 0.016; // 0.016 ~ 60fps
-        cam_transform.translation.x = player_pos.x;
-        cam_transform.translation.y = player_pos.y;
-        cam_transform.scale = Vec3::splat(new_zoom);
-    }
-}
-
-// System to apply sun proximity damage to the ship
-fn sun_proximity_damage(
-    mut ship_query: Query<(&mut ship::spaceship::Spaceship, &Transform)>,
-    sun_query: Query<&Transform, With<planets::sun::Sun>>,
-    time: Res<Time>,
-    mut sun_damage_warning: ResMut<SunDamageWarning>,
-) {
-    let (mut ship, ship_transform) = match ship_query.single_mut() {
-        Ok(val) => val,
-        Err(_) => return,
-    };
-    let sun_transform = match sun_query.single() {
-        Ok(val) => val,
-        Err(_) => return,
-    };
-    let ship_pos = ship_transform.translation.truncate();
-    let sun_pos = sun_transform.translation.truncate();
-    let dist = ship_pos.distance(sun_pos);
-    let damage_radius = 600.0; // Adjust as needed
-    let damage_per_sec = 0.25; // Hull damage per second
-    if dist < damage_radius {
-        ship.hull = (ship.hull - damage_per_sec * time.delta().as_secs_f32()).max(0.0);
-        sun_damage_warning.0 = true;
-    } else {
-        sun_damage_warning.0 = false;
-    }
-}
-
-// Resource to track if the ship is currently taking sun damage
-#[derive(Resource, Default)]
-pub struct SunDamageWarning(pub bool);
+// One of the two settings that can be set through the menu. It will be a resource in the app
+#[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
+struct Volume(u32);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .init_resource::<SunDamageWarning>()
-        .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                parallax_starfield,
-                ship::movement::move_spaceship,
-                camera_follow_and_zoom,
-                ship::ui::spaceship_ui_panel,
-                refuel_on_base_visit,
-                rotate_sun,
-                sun_proximity_damage,
-                show_action_menu_system, // Add action menu system
-                ship::action_menu::action_menu_button_system, // Add action menu button system for interactivity
-            ),
-        )
+        .init_state::<GameState>()
+        .insert_resource(DisplayQuality::Medium)
+        .insert_resource(Volume(7))
+        .insert_resource(space::SunDamageWarning::default()) // <-- Add this line
+        .add_systems(Startup, setup_camera)
+        .add_plugins((
+            splash::splash_plugin,
+            menu::menu_plugin,
+            space::space_plugin,
+            // docked::docked_plugin,
+        ))
         .run();
+}
+
+fn setup_camera(mut commands: Commands) {
+    commands.spawn(Camera2d);
+}
+
+// Generic system that takes a component as a parameter, and will despawn all entities with that component
+fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
+    for entity in &to_despawn {
+        commands.entity(entity).despawn();
+    }
 }

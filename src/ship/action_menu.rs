@@ -88,7 +88,7 @@ pub fn show_action_menu_system(
                                 ))
                                 .with_children(|button| {
                                     button.spawn((
-                                        Text::new("Button"),
+                                        Text::new("Dock"),
                                         TextFont {
                                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                             font_size: 33.0,
@@ -120,22 +120,24 @@ pub fn action_menu_button_system(
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
+    mut next_state: ResMut<bevy::prelude::NextState<crate::GameState>>,
 ) {
     for (interaction, mut color, mut border_color, children) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
-                **text = "Press".to_string();
+                **text = "Dock".to_string();
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
+                next_state.set(crate::GameState::Docked); // Switch to docked scene
             }
             Interaction::Hovered => {
-                **text = "Hover".to_string();
+                **text = "Dock".to_string();
                 *color = HOVERED_BUTTON.into();
                 border_color.0 = Color::WHITE;
             }
             Interaction::None => {
-                **text = "Button".to_string();
+                **text = "Dock".to_string();
                 *color = NORMAL_BUTTON.into();
                 border_color.0 = Color::BLACK;
             }
