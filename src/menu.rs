@@ -147,6 +147,8 @@ fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
 
 fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Common style for all buttons on the screen
+    let menu_bg = asset_server.load("menu_bg.png");
+
     let button_node = Node {
         width: Val::Px(300.0),
         height: Val::Px(65.0),
@@ -182,70 +184,96 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         BackgroundColor(WHITE.into()),
         OnMainMenuScreen,
-        children![(
-            Node {
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            children![
-                // Display the game name
-                (
-                    Text::new("Spaceout Adventure"),
-                    TextFont {
-                        font_size: 67.0,
-                        ..default()
-                    },
-                    TextColor(TEXT_COLOR),
-                    Node {
-                        margin: UiRect::all(Val::Px(50.0)),
-                        ..default()
-                    },
-                ),
-                // Display three buttons for each action available from the main menu:
-                // - new game
-                // - settings
-                // - quit
-                (
-                    Button,
-                    button_node.clone(),
-                    BackgroundColor(NORMAL_BUTTON),
-                    MenuButtonAction::Play,
-                    children![
-                        (ImageNode::new(right_icon), button_icon_node.clone()),
-                        (
-                            Text::new("New Game"),
-                            button_text_font.clone(),
-                            TextColor(TEXT_COLOR),
-                        ),
-                    ]
-                ),
-                (
-                    Button,
-                    button_node.clone(),
-                    BackgroundColor(NORMAL_BUTTON),
-                    MenuButtonAction::Settings,
-                    children![
-                        (ImageNode::new(wrench_icon), button_icon_node.clone()),
-                        (
-                            Text::new("Settings"),
-                            button_text_font.clone(),
-                            TextColor(TEXT_COLOR),
-                        ),
-                    ]
-                ),
-                (
-                    Button,
-                    button_node,
-                    BackgroundColor(NORMAL_BUTTON),
-                    MenuButtonAction::Quit,
-                    children![
-                        (ImageNode::new(exit_icon), button_icon_node),
-                        (Text::new("Quit"), button_text_font, TextColor(TEXT_COLOR),),
-                    ]
-                ),
-            ]
-        )],
+        children![
+            (
+                ImageNode::new(menu_bg),
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+            ),
+            (
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                children![
+                    // Display the game name
+                    (
+                        Text::new("spaceout"),
+                        TextFont {
+                            font_size: 80.0,
+                            font: asset_server.load("fonts/PaytoneOne-Regular.ttf"),
+                            ..default()
+                        },
+                        TextColor(NORMAL_BUTTON),
+                        Node {
+                            margin: UiRect::all(Val::Px(25.0)),
+                            ..default()
+                        },
+                    ),
+                    (
+                        Text::new("adventure"),
+                        TextFont {
+                            font: asset_server.load("fonts/Satisfy-Regular.ttf"),
+                            font_size: 67.0,
+                            ..default()
+                        },
+                        TextColor(TEXT_COLOR),
+                        Node {
+                            margin: UiRect::all(Val::Px(10.0)),
+                            ..default()
+                        },
+                    ),
+                    // Display three buttons for each action available from the main menu:
+                    // - new game
+                    // - settings
+                    // - quit
+                    (
+                        Button,
+                        button_node.clone(),
+                        BackgroundColor(NORMAL_BUTTON),
+                        MenuButtonAction::Play,
+                        children![
+                            (ImageNode::new(right_icon), button_icon_node.clone()),
+                            (
+                                Text::new("New Game"),
+                                button_text_font.clone(),
+                                TextColor(TEXT_COLOR),
+                            ),
+                        ]
+                    ),
+                    (
+                        Button,
+                        button_node.clone(),
+                        BackgroundColor(NORMAL_BUTTON),
+                        MenuButtonAction::Settings,
+                        children![
+                            (ImageNode::new(wrench_icon), button_icon_node.clone()),
+                            (
+                                Text::new("Settings"),
+                                button_text_font.clone(),
+                                TextColor(TEXT_COLOR),
+                            ),
+                        ]
+                    ),
+                    (
+                        Button,
+                        button_node,
+                        BackgroundColor(NORMAL_BUTTON),
+                        MenuButtonAction::Quit,
+                        children![
+                            (ImageNode::new(exit_icon), button_icon_node),
+                            (Text::new("Quit"), button_text_font, TextColor(TEXT_COLOR),),
+                        ]
+                    ),
+                ]
+            )
+        ],
     ));
 }
 
