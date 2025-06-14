@@ -1,6 +1,6 @@
 use bevy::{
     app::AppExit,
-    color::palettes::css::CRIMSON,
+    color::palettes::css::{CRIMSON, WHITE},
     ecs::spawn::{SpawnIter, SpawnWith},
     prelude::*,
 };
@@ -180,6 +180,7 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::Center,
             ..default()
         },
+        BackgroundColor(WHITE.into()),
         OnMainMenuScreen,
         children![(
             Node {
@@ -191,7 +192,7 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             children![
                 // Display the game name
                 (
-                    Text::new("Bevy Game Menu UI"),
+                    Text::new("Spaceout Adventure"),
                     TextFont {
                         font_size: 67.0,
                         ..default()

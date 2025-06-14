@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{color::palettes::css::WHITE, prelude::*, ui::stack_z_offsets::NODE};
 
 use super::{GameState, despawn_screen};
 
@@ -31,17 +31,33 @@ fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::Center,
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
+
             ..default()
         },
+        BackgroundColor(WHITE.into()),
         OnSplashScreen,
-        children![(
-            ImageNode::new(icon),
-            Node {
-                // This will set the logo to be 200px wide, and auto adjust its height
-                width: Val::Px(200.0),
-                ..default()
-            },
-        )],
+        children![
+            (
+                ImageNode::new(icon),
+                Node {
+                    // This will set the logo to be 200px wide, and auto adjust its height
+                    width: Val::Px(200.0),
+                    ..default()
+                },
+            ),
+            (
+                Text::new(
+                    // This will display the text "Z Defense" below the logo
+                    "spaceout".to_string(),
+                ),
+                TextFont {
+                    font: asset_server.load("fonts/PaytoneOne-Regular.ttf"),
+                    font_size: 32.0,
+                    ..default()
+                },
+                TextColor(Color::BLACK),
+            )
+        ],
     ));
     // Insert the timer as a resource
     commands.insert_resource(SplashTimer(Timer::from_seconds(1.0, TimerMode::Once)));
